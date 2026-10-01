@@ -5,6 +5,7 @@ use actix_web::http::StatusCode;
 use actix_web::test::{TestRequest, call_service, init_service, try_read_body_json};
 use actix_web::web::{Json, Path};
 use actix_web::{App, ResponseError};
+use apistos::InstanceType;
 use apistos::app::OpenApiWrapper;
 use apistos::spec::Spec;
 use apistos::web::{get, resource, scope};
@@ -15,7 +16,6 @@ use apistos_models::paths::{OperationType, Parameter, ParameterDefinition};
 use apistos_models::reference_or::ReferenceOr;
 use apistos_models::tag::Tag;
 use schemars::JsonSchema;
-use schemars::schema::{InstanceType, SchemaObject, SingleOrVec};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -106,15 +106,15 @@ async fn path_parameter_replacement() {
     .and_then(|p| {
       if let ParameterDefinition::Schema(schema) = p {
         if let ReferenceOr::Object(sch) = *schema {
-          return Some(sch.into_object().clone());
+          return Some(sch);
         }
       }
       None
     })
     .unwrap_or_default();
   assert_eq!(
-    first_parameter_schema.instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::Integer)))
+    InstanceType::from_schema(&first_parameter_schema),
+    vec![InstanceType::Integer]
   );
 
   let last_parameter = parameters.last().cloned().unwrap_or_default();
@@ -124,15 +124,15 @@ async fn path_parameter_replacement() {
     .and_then(|p| {
       if let ParameterDefinition::Schema(schema) = p {
         if let ReferenceOr::Object(sch) = *schema {
-          return Some(sch.into_object().clone());
+          return Some(sch);
         }
       }
       None
     })
     .unwrap_or_default();
   assert_eq!(
-    last_parameter_schema.instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::String)))
+    InstanceType::from_schema(&last_parameter_schema),
+    vec![InstanceType::String]
   );
 }
 
@@ -221,7 +221,7 @@ async fn struct_path_parameter_schema_matches_parameter_name() {
 
   assert_eq!(parameters.len(), 4);
 
-  let schema_for = |name: &str| -> SchemaObject {
+  let schema_for = |name: &str| -> apistos::Schema {
     parameters
       .iter()
       .find(|p| p.name == name)
@@ -229,7 +229,7 @@ async fn struct_path_parameter_schema_matches_parameter_name() {
       .and_then(|p| {
         if let ParameterDefinition::Schema(schema) = p {
           if let ReferenceOr::Object(sch) = *schema {
-            return Some(sch.into_object().clone());
+            return Some(sch);
           }
         }
         None
@@ -238,20 +238,20 @@ async fn struct_path_parameter_schema_matches_parameter_name() {
   };
 
   assert_eq!(
-    schema_for("int_param").instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::Integer)))
+    InstanceType::from_schema(&schema_for("int_param")),
+    vec![InstanceType::Integer]
   );
   assert_eq!(
-    schema_for("bool_param").instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::Boolean)))
+    InstanceType::from_schema(&schema_for("bool_param")),
+    vec![InstanceType::Boolean]
   );
   assert_eq!(
-    schema_for("string_param").instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::String)))
+    InstanceType::from_schema(&schema_for("string_param")),
+    vec![InstanceType::String]
   );
   assert_eq!(
-    schema_for("float_param").instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::Number)))
+    InstanceType::from_schema(&schema_for("float_param")),
+    vec![InstanceType::Number]
   );
 }
 

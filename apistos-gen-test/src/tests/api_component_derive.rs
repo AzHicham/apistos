@@ -45,6 +45,7 @@ fn api_component_derive() {
 #[allow(dead_code)]
 fn api_component_derive_with_generic() {
   #[derive(JsonSchema, ApiComponent)]
+  #[schemars(rename = "Name_for_{T}")]
   struct Name<T>
   where
     T: JsonSchema,
@@ -79,8 +80,8 @@ fn api_component_derive_with_generic() {
         }
       },
       "required": [
-        "id",
-        "name"
+        "name",
+        "id"
       ],
       "title": "Name_for_Test",
       "type": "object"
@@ -97,7 +98,7 @@ fn api_component_derive_with_generic() {
       "properties": {
         "id_number": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "integer"
         },
         "id_string": {
@@ -142,7 +143,7 @@ fn api_component_derive_with_flatten() {
       "properties": {
         "id_number": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "integer"
         },
         "id_string": {
@@ -153,9 +154,9 @@ fn api_component_derive_with_flatten() {
         }
       },
       "required": [
+        "name",
         "id_number",
-        "id_string",
-        "name"
+        "id_string"
       ],
       "title": "Name",
       "type": "object"
@@ -325,11 +326,10 @@ fn api_component_derive_flatten_algebraic_enums() {
     json!({
       "oneOf": [
         {
-          "additionalProperties": false,
           "properties": {
             "after_id": {
               "format": "uint64",
-              "minimum": 0.0,
+              "minimum": 0,
               "type": "integer"
             }
           },
@@ -340,7 +340,6 @@ fn api_component_derive_flatten_algebraic_enums() {
           "type": "object"
         },
         {
-          "additionalProperties": false,
           "properties": {
             "after_date": {
               "format": "date-time",
@@ -357,7 +356,7 @@ fn api_component_derive_flatten_algebraic_enums() {
       "properties": {
         "limit": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "integer"
         }
       },
@@ -406,12 +405,12 @@ fn api_component_derive_optional_enums() {
       "properties": {
         "limit": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "integer"
         },
         "offset": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "nullable": true,
           "type": "integer"
         },
@@ -472,7 +471,6 @@ fn api_component_derive_named_enums() {
     json!({
       "oneOf": [
         {
-          "additionalProperties": false,
           "properties": {
             "Active": {
               "$ref": "#/components/schemas/ActiveOrInactiveQuery"
@@ -485,7 +483,6 @@ fn api_component_derive_named_enums() {
           "type": "object"
         },
         {
-          "additionalProperties": false,
           "properties": {
             "Inactive": {
               "$ref": "#/components/schemas/ActiveOrInactiveQuery"
@@ -510,15 +507,18 @@ fn api_component_derive_named_enums() {
         }
       },
       "required": [
-        "kinds",
-        "test"
+        "test",
+        "kinds"
       ],
       "title": "Query",
       "type": "object"
     })
   );
 
-  let (child_schema_name, child_schema) = name_child_schemas.first().expect("missing child schema");
+  let (child_schema_name, child_schema) = name_child_schemas
+    .iter()
+    .find(|(name, _)| name == "KindQuery")
+    .expect("missing child schema");
   assert_eq!(child_schema_name, "KindQuery");
   assert_schema(&child_schema.clone());
   let json = serde_json::to_value(child_schema).expect("Unable to serialize as Json");
@@ -556,7 +556,10 @@ fn api_component_derive_named_enums() {
     })
   );
 
-  let (child_schema_name, child_schema) = name_child_schemas.last().expect("missing child schema");
+  let (child_schema_name, child_schema) = name_child_schemas
+    .iter()
+    .find(|(name, _)| name == "ActiveOrInactiveQuery")
+    .expect("missing child schema");
   assert_eq!(child_schema_name, "ActiveOrInactiveQuery");
   assert_schema(&child_schema.clone());
   let json = serde_json::to_value(child_schema).expect("Unable to serialize as Json");
@@ -569,13 +572,13 @@ fn api_component_derive_named_enums() {
         },
         "id": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "integer"
         }
       },
       "required": [
-        "description",
-        "id"
+        "id",
+        "description"
       ],
       "type": "object"
     })
@@ -617,8 +620,8 @@ fn api_component_derive_named_enums_documented() {
         }
       },
       "required": [
-        "kind",
-        "test"
+        "test",
+        "kind"
       ],
       "title": "Query",
       "type": "object"
@@ -703,7 +706,7 @@ fn api_component_derive_named_enums_deep() {
   let name_schema = <Query as ApiComponent>::schema();
   let name_child_schemas = <Query as ApiComponent>::child_schemas();
   assert!(name_schema.is_some());
-  assert_eq!(name_child_schemas.len(), 5);
+  assert_eq!(name_child_schemas.len(), 6);
   let (schema_name, schema) = name_schema.expect("schema should be defined");
   assert_eq!(schema_name, "Query");
   assert_schema(&schema.clone());
@@ -720,8 +723,8 @@ fn api_component_derive_named_enums_deep() {
         }
       },
       "required": [
-        "level2",
-        "test"
+        "test",
+        "level2"
       ],
       "title": "Query",
       "type": "object"
@@ -828,7 +831,7 @@ fn api_component_derive_named_enums_deep() {
         },
         "id": {
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "integer"
         },
         "level4": {
@@ -836,8 +839,8 @@ fn api_component_derive_named_enums_deep() {
         }
       },
       "required": [
-        "description",
         "id",
+        "description",
         "level4"
       ],
       "type": "object"
@@ -855,10 +858,12 @@ fn api_component_derive_named_enums_deep() {
     json!({
       "oneOf": [
         {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/TestStuff"
+            }
+          ],
           "properties": {
-            "name": {
-              "type": "string"
-            },
             "type": {
               "enum": [
                 "something"
@@ -867,17 +872,18 @@ fn api_component_derive_named_enums_deep() {
             }
           },
           "required": [
-            "name",
             "type"
           ],
           "title": "something",
           "type": "object"
         },
         {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/TestStuff"
+            }
+          ],
           "properties": {
-            "name": {
-              "type": "string"
-            },
             "type": {
               "enum": [
                 "other"
@@ -886,13 +892,33 @@ fn api_component_derive_named_enums_deep() {
             }
           },
           "required": [
-            "name",
             "type"
           ],
           "title": "other",
           "type": "object"
         }
       ]
+    })
+  );
+
+  let (_, child_schema) = name_child_schemas
+    .iter()
+    .find(|(name, _)| name == "TestStuff")
+    .expect("missing child schema");
+  assert_schema(&child_schema.clone());
+  let json = serde_json::to_value(child_schema).expect("Unable to serialize as Json");
+  assert_json_eq!(
+    json,
+    json!({
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
     })
   );
 }

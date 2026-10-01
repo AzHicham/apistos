@@ -1,7 +1,7 @@
 use crate::ApiComponent;
 use apistos_models::paths::{Parameter, ParameterDefinition, ParameterIn, RequestBody};
 use apistos_models::reference_or::ReferenceOr;
-use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec, StringValidation};
+use schemars::{Schema, json_schema};
 
 impl ApiComponent for actix_session::Session {
   fn required() -> bool {
@@ -13,11 +13,7 @@ impl ApiComponent for actix_session::Session {
   }
 
   fn raw_schema() -> Option<ReferenceOr<Schema>> {
-    Some(ReferenceOr::Object(Schema::Object(SchemaObject {
-      instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
-      string: Some(Box::new(StringValidation::default())),
-      ..Default::default()
-    })))
+    Some(ReferenceOr::Object(json_schema!({ "type": "string" })))
   }
 
   fn schema() -> Option<(String, ReferenceOr<Schema>)> {

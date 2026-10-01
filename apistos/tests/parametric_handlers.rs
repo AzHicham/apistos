@@ -6,6 +6,7 @@ use actix_web::test::{TestRequest, call_service, init_service, try_read_body_jso
 use actix_web::web::{Json, Path};
 use actix_web::{App, ResponseError};
 use apistos::ApiComponent;
+use apistos::InstanceType;
 use apistos::app::OpenApiWrapper;
 use apistos::spec::Spec;
 use apistos::web::{get, resource, scope};
@@ -16,7 +17,6 @@ use apistos_models::paths::{OperationType, Parameter, ParameterDefinition};
 use apistos_models::reference_or::ReferenceOr;
 use apistos_models::tag::Tag;
 use schemars::JsonSchema;
-use schemars::schema::{InstanceType, SingleOrVec};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -122,15 +122,15 @@ async fn path_parameter_replacement() {
     .and_then(|p| {
       if let ParameterDefinition::Schema(schema) = p {
         if let ReferenceOr::Object(sch) = *schema {
-          return Some(sch.into_object().clone());
+          return Some(sch);
         }
       }
       None
     })
     .unwrap_or_default();
   assert_eq!(
-    first_parameter_schema.instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::Integer)))
+    InstanceType::from_schema(&first_parameter_schema),
+    vec![InstanceType::Integer]
   );
 
   let last_parameter = parameters.last().cloned().unwrap_or_default();
@@ -140,15 +140,15 @@ async fn path_parameter_replacement() {
     .and_then(|p| {
       if let ParameterDefinition::Schema(schema) = p {
         if let ReferenceOr::Object(sch) = *schema {
-          return Some(sch.into_object().clone());
+          return Some(sch);
         }
       }
       None
     })
     .unwrap_or_default();
   assert_eq!(
-    last_parameter_schema.instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::String)))
+    InstanceType::from_schema(&last_parameter_schema),
+    vec![InstanceType::String]
   );
 
   let parameters: Vec<Parameter> = body
@@ -178,15 +178,15 @@ async fn path_parameter_replacement() {
     .and_then(|p| {
       if let ParameterDefinition::Schema(schema) = p {
         if let ReferenceOr::Object(sch) = *schema {
-          return Some(sch.into_object().clone());
+          return Some(sch);
         }
       }
       None
     })
     .unwrap_or_default();
   assert_eq!(
-    parameter_schema.instance_type,
-    Some(SingleOrVec::Single(Box::new(InstanceType::Integer)))
+    InstanceType::from_schema(&parameter_schema),
+    vec![InstanceType::Integer]
   );
 }
 

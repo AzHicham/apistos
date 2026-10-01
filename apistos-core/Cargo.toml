@@ -52,12 +52,12 @@ lab_query = ["actix", "dep:actix-web-lab", "garde-actix-web?/lab_query"]
 garde = ["actix", "dep:garde-actix-web"]
 
 # extra types related features
-chrono = ["dep:chrono", "schemars/chrono"]
+chrono = ["dep:chrono", "schemars/chrono04"]
 multipart = ["actix", "dep:serde", "dep:actix-multipart"]
-rust_decimal = ["dep:rust_decimal", "schemars/rust_decimal"]
+rust_decimal = ["dep:rust_decimal", "schemars/rust_decimal1"]
 actix-session = ["actix", "dep:serde", "dep:actix-session"]
 uuid = ["dep:uuid", "schemars/uuid1"]
-url = ["dep:url", "schemars/url"]
+url = ["dep:url", "schemars/url2"]
 extras = ["chrono", "multipart", "rust_decimal", "uuid", "url"]
 
 default = ["actix", "query"]

@@ -1,10 +1,9 @@
+use super::{has_object_validation, properties, subschemas};
 use crate::ApiComponent;
 use actix_web::web::Path;
-use apistos_models::ObjectValidation;
-use apistos_models::Schema;
 use apistos_models::paths::{Parameter, ParameterDefinition, ParameterIn, RequestBody};
 use apistos_models::reference_or::ReferenceOr;
-use schemars::schema::{InstanceType, SingleOrVec};
+use apistos_models::{InstanceType, Schema};
 
 impl<T> ApiComponent for Path<T>
 where
@@ -179,26 +178,19 @@ fn parameters_for_schema(schema: ReferenceOr<Schema>, required: bool) -> Vec<Par
       parameters.push(gen_simple_path_parameter(r, required));
     }
     ReferenceOr::Object(schema) => {
-      let sch = schema.clone().into_object();
-      if let Some(subschemas) = sch.subschemas {
-        // any_of and one_of should not exists for path ?
-        if let Some(all_of) = subschemas.all_of {
-          for schema in all_of {
-            parameters.append(&mut parameters_for_schema(schema.into(), required));
-          }
-        }
+      // any_of and one_of should not exists for path ?
+      for schema in subschemas(&schema, "allOf") {
+        parameters.append(&mut parameters_for_schema(schema.into(), required));
       }
-      if let Some(obj) = sch.object.clone() {
-        parameters.append(&mut gen_path_parameter_for_object(&schema, &obj, required));
+      if has_object_validation(&schema) {
+        parameters.append(&mut gen_path_parameter_for_object(&schema, required));
       }
-      if let Some(instance_type) = sch.instance_type.clone() {
-        let processable_instance_type = match instance_type {
-          SingleOrVec::Single(it) => processable_instance_type(*it),
-          SingleOrVec::Vec(its) => its.first().map(|it| processable_instance_type(*it)).unwrap_or_default(),
-        };
-        if processable_instance_type {
-          parameters.push(gen_simple_path_parameter(schema.into(), required));
-        }
+      let processable_instance_type = InstanceType::from_schema(&schema)
+        .first()
+        .map(|it| processable_instance_type(*it))
+        .unwrap_or_default();
+      if processable_instance_type {
+        parameters.push(gen_simple_path_parameter(schema.into(), required));
       }
     }
   }
@@ -206,13 +198,12 @@ fn parameters_for_schema(schema: ReferenceOr<Schema>, required: bool) -> Vec<Par
   parameters
 }
 
-fn gen_path_parameter_for_object(schema: &Schema, obj: &ObjectValidation, required: bool) -> Vec<Parameter> {
-  if obj.properties.is_empty() {
+fn gen_path_parameter_for_object(schema: &Schema, required: bool) -> Vec<Parameter> {
+  let properties = properties(schema);
+  if properties.is_empty() {
     vec![gen_simple_path_parameter(schema.clone().into(), required)]
   } else {
-    obj
-      .properties
-      .clone()
+    properties
       .into_iter()
       .map(|(name, schema)| Parameter {
         name,

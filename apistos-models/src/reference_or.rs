@@ -1,4 +1,4 @@
-use schemars::schema::Schema;
+use schemars::Schema;
 use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug)]

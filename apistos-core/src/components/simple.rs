@@ -10,11 +10,7 @@ macro_rules! simple_modifier {
         vec![]
       }
       fn raw_schema() -> Option<apistos_models::reference_or::ReferenceOr<apistos_models::Schema>> {
-        let generator = schemars::r#gen::SchemaSettings::openapi3().into_generator();
-
-        let schema: apistos_models::reference_or::ReferenceOr<apistos_models::Schema> =
-          apistos_models::Schema::Object(generator.into_root_schema_for::<$ty>().schema).into();
-        Some(schema)
+        Some(apistos_models::schema_for::<$ty>().into())
       }
       fn schema() -> Option<(
         String,
@@ -69,11 +65,7 @@ impl<T: chrono::TimeZone> ApiComponent for chrono::DateTime<T> {
   }
 
   fn raw_schema() -> Option<apistos_models::reference_or::ReferenceOr<apistos_models::Schema>> {
-    let generator = schemars::r#gen::SchemaSettings::openapi3().into_generator();
-
-    let schema: apistos_models::reference_or::ReferenceOr<apistos_models::Schema> =
-      apistos_models::Schema::Object(generator.into_root_schema_for::<chrono::DateTime<T>>().schema).into();
-    Some(schema)
+    Some(apistos_models::schema_for::<chrono::DateTime<T>>().into())
   }
 
   fn schema() -> Option<(

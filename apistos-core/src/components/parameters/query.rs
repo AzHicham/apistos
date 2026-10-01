@@ -7,16 +7,18 @@ use apistos_models::Schema;
 use apistos_models::paths::ParameterStyle;
 use apistos_models::paths::{Parameter, ParameterDefinition, ParameterIn, RequestBody};
 use apistos_models::reference_or::ReferenceOr;
-use apistos_models::{ObjectValidation, SchemaObject};
 #[cfg(all(feature = "lab_query", feature = "garde"))]
 use garde_actix_web::web::LabQuery as GardeLabQuery;
 #[cfg(all(feature = "qs_query", feature = "garde"))]
 use garde_actix_web::web::QsQuery as GardeQsQuery;
 #[cfg(all(feature = "query", feature = "garde"))]
 use garde_actix_web::web::Query as GardeQuery;
+use schemars::json_schema;
 #[cfg(feature = "qs_query")]
 use serde_qs::actix::QsQuery;
 use std::collections::HashMap;
+
+use super::{has_object_validation, properties, subschemas};
 
 #[allow(unused_macro_rules)]
 macro_rules! impl_query {
@@ -119,49 +121,49 @@ fn parameters_from_schema(
         // don't know what to do with it
       }
       ReferenceOr::Object(schema) => {
-        let sch = schema.into_object();
-        if let Some(obj) = &sch.object {
+        if has_object_validation(&schema) {
           parameters.append(&mut parameter_for_obj(
-            obj,
-            &sch,
+            &schema,
             required,
             default_description,
             style,
             explode,
           ));
         }
-        if let Some(subschema) = &sch.subschemas {
-          if let Some(all_of) = &subschema.all_of {
-            for sch in all_of {
-              parameters.append(&mut parameters_from_schema(
-                Some(ReferenceOr::Object(sch.clone())),
-                required,
-                default_description,
-                style,
-                explode,
-              ));
-            }
-          }
-          if let Some(one_of) = &subschema.one_of {
-            let mut properties = vec![];
-            for one_of_sch in one_of {
-              if let Some(obj) = one_of_sch.clone().into_object().object {
-                obj
-                  .properties
-                  .iter()
-                  .for_each(|(name, _)| properties.push(name.clone()))
-              }
-            }
-            let description = format!("{} are mutually exclusive properties", properties.join(", "));
-            for one_of_sch in one_of {
-              parameters.append(&mut parameters_from_schema(
-                Some(ReferenceOr::Object(one_of_sch.clone())),
-                Some(false),
-                &Some(description.clone()),
-                style,
-                explode,
-              ));
-            }
+        for sch in subschemas(&schema, "allOf") {
+          parameters.append(&mut parameters_from_schema(
+            Some(ReferenceOr::Object(sch)),
+            required,
+            default_description,
+            style,
+            explode,
+          ));
+        }
+        // optional flattened fields are generated as `anyOf: [<schema>, {}]`
+        for sch in subschemas(&schema, "anyOf") {
+          parameters.append(&mut parameters_from_schema(
+            Some(ReferenceOr::Object(sch)),
+            Some(false),
+            default_description,
+            style,
+            explode,
+          ));
+        }
+        let one_of = subschemas(&schema, "oneOf");
+        if !one_of.is_empty() {
+          let properties = one_of
+            .iter()
+            .flat_map(|one_of_sch| properties(one_of_sch).into_iter().map(|(name, _)| name))
+            .collect::<Vec<_>>();
+          let description = format!("{} are mutually exclusive properties", properties.join(", "));
+          for one_of_sch in one_of {
+            parameters.append(&mut parameters_from_schema(
+              Some(ReferenceOr::Object(one_of_sch)),
+              Some(false),
+              &Some(description.clone()),
+              style,
+              explode,
+            ));
           }
         }
       }
@@ -179,7 +181,7 @@ fn parameters_from_hashmap(schema: Option<ReferenceOr<Schema>>, style: Option<Pa
           name: "params".to_string(),
           _in: ParameterIn::Query,
           definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-            Schema::Object(SchemaObject::default()),
+            json_schema!({}),
           )))),
           ..Default::default()
         }];
@@ -190,13 +192,7 @@ fn parameters_from_hashmap(schema: Option<ReferenceOr<Schema>>, style: Option<Pa
           _in: ParameterIn::Query,
           style,
           definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-            Schema::Object(SchemaObject {
-              object: Some(Box::new(ObjectValidation {
-                additional_properties: Some(Box::new(schema)),
-                ..Default::default()
-              })),
-              ..Default::default()
-            }),
+            json_schema!({ "additionalProperties": schema }),
           )))),
           ..Default::default()
         }];
@@ -208,7 +204,7 @@ fn parameters_from_hashmap(schema: Option<ReferenceOr<Schema>>, style: Option<Pa
       _in: ParameterIn::Query,
       style,
       definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-        Schema::Object(SchemaObject::default()),
+        json_schema!({}),
       )))),
       ..Default::default()
     }];
@@ -217,24 +213,20 @@ fn parameters_from_hashmap(schema: Option<ReferenceOr<Schema>>, style: Option<Pa
 }
 
 fn parameter_for_obj(
-  obj: &ObjectValidation,
-  sch: &SchemaObject,
+  sch: &Schema,
   required: Option<bool>,
   default_description: &Option<String>,
   style: &Option<ParameterStyle>,
   explode: Option<bool>,
 ) -> Vec<Parameter> {
-  obj
-    .properties
-    .clone()
+  properties(sch)
     .into_iter()
     .map(|(name, schema)| {
       let required = required.or_else(|| extract_required_from_schema(sch, &name));
       let description = schema
-        .clone()
-        .into_object()
-        .metadata
-        .and_then(|m| m.description)
+        .get("description")
+        .and_then(|d| d.as_str())
+        .map(ToString::to_string)
         .or_else(|| default_description.clone());
       Parameter {
         name,
@@ -250,20 +242,45 @@ fn parameter_for_obj(
     .collect()
 }
 
-fn extract_required_from_schema(sch_obj: &SchemaObject, property_name: &str) -> Option<bool> {
-  if let Some(obj) = &sch_obj.object {
-    for ri in &obj.required {
-      if ri.clone() == *property_name {
-        return Some(true);
-      }
-    }
+/// Keywords for which the requirement of a property can't be inferred from the parent schema.
+const NON_OBJECT_KEYWORDS: [&str; 21] = [
+  // subschemas
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "not",
+  "if",
+  "then",
+  "else",
+  // string
+  "maxLength",
+  "minLength",
+  "pattern",
+  // number
+  "multipleOf",
+  "maximum",
+  "exclusiveMaximum",
+  "minimum",
+  "exclusiveMinimum",
+  // array
+  "items",
+  "additionalItems",
+  "maxItems",
+  "minItems",
+  "uniqueItems",
+  // reference
+  "$ref",
+];
+
+fn extract_required_from_schema(sch: &Schema, property_name: &str) -> Option<bool> {
+  let is_required = sch
+    .get("required")
+    .and_then(|r| r.as_array())
+    .is_some_and(|r| r.iter().any(|ri| ri.as_str() == Some(property_name)));
+  if is_required {
+    return Some(true);
   }
-  if sch_obj.subschemas.is_some()
-    || sch_obj.string.is_some()
-    || sch_obj.number.is_some()
-    || sch_obj.array.is_some()
-    || sch_obj.reference.is_some()
-  {
+  if NON_OBJECT_KEYWORDS.iter().any(|k| sch.get(*k).is_some()) {
     return None;
   }
   Some(false)
@@ -279,8 +296,7 @@ mod test {
   use apistos_models::paths::ParameterStyle;
   use apistos_models::paths::{Parameter, ParameterDefinition, ParameterIn};
   use apistos_models::reference_or::ReferenceOr;
-  use schemars::JsonSchema;
-  use schemars::schema::{InstanceType, NumberValidation, RootSchema, Schema, SchemaObject, SingleOrVec};
+  use schemars::{JsonSchema, Schema, json_schema};
   use serde::{Deserialize, Serialize};
   #[cfg(feature = "qs_query")]
   use serde_qs::actix::QsQuery;
@@ -297,14 +313,10 @@ mod test {
     }
 
     fn schema() -> Option<(String, ReferenceOr<Schema>)> {
-      let (name, schema) = {
-        let schema_name = <Self as JsonSchema>::schema_name();
-        let settings = schemars::r#gen::SchemaSettings::openapi3();
-        let generator = settings.into_generator();
-        let schema: RootSchema = generator.into_root_schema_for::<Self>();
-        (schema_name, ReferenceOr::Object(Schema::Object(schema.schema)))
-      };
-      Some((name, schema))
+      Some((
+        <Self as JsonSchema>::schema_name().to_string(),
+        ReferenceOr::Object(apistos_models::schema_for::<Self>()),
+      ))
     }
   }
 
@@ -325,14 +337,10 @@ mod test {
         _in: ParameterIn::Query,
         required: Some(true),
         definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-          Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::Integer))),
-            format: Some("uint32".to_string()),
-            number: Some(Box::new(NumberValidation {
-              minimum: Some(0.0),
-              ..Default::default()
-            })),
-            ..Default::default()
+          json_schema!({
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
           })
         )))),
         ..Default::default()
@@ -351,10 +359,7 @@ mod test {
         _in: ParameterIn::Query,
         required: Some(true),
         definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-          Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
-            ..Default::default()
-          })
+          json_schema!({ "type": "string" })
         )))),
         ..Default::default()
       }
@@ -379,14 +384,10 @@ mod test {
         _in: ParameterIn::Query,
         required: Some(true),
         definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-          Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::Integer))),
-            format: Some("uint32".to_string()),
-            number: Some(Box::new(NumberValidation {
-              minimum: Some(0.0),
-              ..Default::default()
-            })),
-            ..Default::default()
+          json_schema!({
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
           })
         )))),
         ..Default::default()
@@ -405,10 +406,7 @@ mod test {
         _in: ParameterIn::Query,
         required: Some(true),
         definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-          Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
-            ..Default::default()
-          })
+          json_schema!({ "type": "string" })
         )))),
         ..Default::default()
       }
@@ -435,14 +433,10 @@ mod test {
         style: Some(ParameterStyle::Form),
         explode: Some(true),
         definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-          Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::Integer))),
-            format: Some("uint32".to_string()),
-            number: Some(Box::new(NumberValidation {
-              minimum: Some(0.0),
-              ..Default::default()
-            })),
-            ..Default::default()
+          json_schema!({
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
           })
         )))),
         ..Default::default()
@@ -463,10 +457,7 @@ mod test {
         style: Some(ParameterStyle::Form),
         explode: Some(true),
         definition: Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-          Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
-            ..Default::default()
-          })
+          json_schema!({ "type": "string" })
         )))),
         ..Default::default()
       }

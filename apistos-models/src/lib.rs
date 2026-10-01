@@ -1,4 +1,4 @@
-//! [OAS 3.0](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md) models over [schemars](https://github.com/GREsau/schemars)'s [`Schema`](https://docs.rs/schemars/latest/schemars/schema/enum.Schema.html).
+//! [OAS 3.0](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md) models over [schemars](https://github.com/GREsau/schemars)'s [`Schema`](https://docs.rs/schemars/latest/schemars/struct.Schema.html).
 //!
 //! These models are not linked to any web framework.
 
@@ -19,11 +19,13 @@ pub mod components;
 pub mod info;
 pub mod paths;
 pub mod reference_or;
+mod schema;
 pub mod security;
 pub mod server;
 pub mod tag;
 
-pub use schemars::schema::*;
+pub use schema::{InstanceType, schema_and_definitions_for, schema_for, schema_settings, set_one_of_titles};
+pub use schemars::*;
 
 #[derive(Serialize, Clone, Debug)]
 #[cfg_attr(any(test, feature = "deserialize"), derive(serde::Deserialize, PartialEq))]

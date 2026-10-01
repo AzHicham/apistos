@@ -4,7 +4,7 @@ use actix_web::http::header::ContentType;
 use actix_web::web::Json;
 use actix_web::{Error, HttpResponse, Responder};
 use assert_json_diff::assert_json_eq;
-use schemars::_serde_json::json;
+use serde_json::json;
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -154,7 +154,7 @@ fn api_operation() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -444,7 +444,7 @@ fn api_operation_without_parameters() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -599,7 +599,7 @@ fn api_operation_created_json() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -636,7 +636,7 @@ fn api_operation_created_json() {
                 "properties": {
                   "id": {
                     "format": "uint32",
-                    "minimum": 0.0,
+                    "minimum": 0,
                     "type": "integer"
                   }
                 },
@@ -784,7 +784,7 @@ fn api_operation_accepted_json() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -821,7 +821,7 @@ fn api_operation_accepted_json() {
                 "properties": {
                   "id": {
                     "format": "uint32",
-                    "minimum": 0.0,
+                    "minimum": 0,
                     "type": "integer"
                   }
                 },
@@ -888,7 +888,7 @@ fn api_operation_deprecated() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -925,7 +925,7 @@ fn api_operation_deprecated() {
                 "properties": {
                   "id": {
                     "format": "uint32",
-                    "minimum": 0.0,
+                    "minimum": 0,
                     "type": "integer"
                   }
                 },
@@ -989,7 +989,7 @@ fn api_operation_deprecated() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -1027,7 +1027,7 @@ fn api_operation_deprecated() {
                 "properties": {
                   "id": {
                     "format": "uint32",
-                    "minimum": 0.0,
+                    "minimum": 0,
                     "type": "integer"
                   }
                 },
@@ -1121,7 +1121,7 @@ fn api_operation_error() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -1158,7 +1158,7 @@ fn api_operation_error() {
                 "properties": {
                   "id": {
                     "format": "uint32",
-                    "minimum": 0.0,
+                    "minimum": 0,
                     "type": "integer"
                   }
                 },
@@ -1229,7 +1229,7 @@ fn api_operation_security() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -1281,7 +1281,7 @@ fn api_operation_security() {
                 "properties": {
                   "id": {
                     "format": "uint32",
-                    "minimum": 0.0,
+                    "minimum": 0,
                     "type": "integer"
                   }
                 },
@@ -1523,7 +1523,7 @@ fn api_operation_root_vec() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -1625,7 +1625,7 @@ fn api_operation_actix_web_grant() {
             "properties": {
               "id": {
                 "format": "uint32",
-                "minimum": 0.0,
+                "minimum": 0,
                 "type": "integer"
               }
             },

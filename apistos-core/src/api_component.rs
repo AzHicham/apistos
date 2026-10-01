@@ -7,9 +7,7 @@ use apistos_models::Schema;
 use apistos_models::paths::{MediaType, Parameter, RequestBody, Response, Responses};
 use apistos_models::reference_or::ReferenceOr;
 use apistos_models::security::SecurityScheme;
-#[cfg(feature = "actix")]
-use schemars::schema::SubschemaValidation;
-use schemars::schema::{ArrayValidation, InstanceType, SchemaObject, SingleOrVec};
+use schemars::json_schema;
 use std::collections::BTreeMap;
 #[cfg(feature = "actix")]
 use std::future::Future;
@@ -130,13 +128,9 @@ where
 
       (
         name,
-        ReferenceOr::Object(Schema::Object(SchemaObject {
-          instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::Array))),
-          array: Some(Box::new(ArrayValidation {
-            items: Some(Schema::new_ref(_ref).into()),
-            ..Default::default()
-          })),
-          ..Default::default()
+        ReferenceOr::Object(json_schema!({
+          "type": "array",
+          "items": { "$ref": _ref }
         })),
       )
     })
@@ -198,26 +192,10 @@ where
   fn raw_schema() -> Option<ReferenceOr<Schema>> {
     match (T::raw_schema(), E::raw_schema()) {
       (Some(raw_schema1), Some(raw_schema2)) => {
-        let raw_schema1 = match raw_schema1 {
-          ReferenceOr::Object(schema_obj) => schema_obj,
-          ReferenceOr::Reference { _ref } => Schema::Object(SchemaObject {
-            reference: Some(_ref),
-            ..Default::default()
-          }),
-        };
-        let raw_schema2 = match raw_schema2 {
-          ReferenceOr::Object(schema_obj) => schema_obj,
-          ReferenceOr::Reference { _ref } => Schema::Object(SchemaObject {
-            reference: Some(_ref),
-            ..Default::default()
-          }),
-        };
-        Some(ReferenceOr::Object(Schema::Object(SchemaObject {
-          subschemas: Some(Box::new(SubschemaValidation {
-            one_of: Some(vec![raw_schema1, raw_schema2]),
-            ..Default::default()
-          })),
-          ..Default::default()
+        let raw_schema1 = into_schema(raw_schema1);
+        let raw_schema2 = into_schema(raw_schema2);
+        Some(ReferenceOr::Object(json_schema!({
+          "oneOf": [raw_schema1, raw_schema2]
         })))
       }
       (Some(raw_schema1), None) => Some(raw_schema1),
@@ -230,27 +208,11 @@ where
     match (T::schema(), E::schema()) {
       (Some(schema1), Some(schema2)) => {
         let (schema_name1, schema1) = schema1;
-        let schema1 = match schema1 {
-          ReferenceOr::Object(schema_obj) => schema_obj,
-          ReferenceOr::Reference { _ref } => Schema::Object(SchemaObject {
-            reference: Some(_ref),
-            ..Default::default()
-          }),
-        };
+        let schema1 = into_schema(schema1);
         let (schema_name2, schema2) = schema2;
-        let schema2 = match schema2 {
-          ReferenceOr::Object(schema_obj) => schema_obj,
-          ReferenceOr::Reference { _ref } => Schema::Object(SchemaObject {
-            reference: Some(_ref),
-            ..Default::default()
-          }),
-        };
-        let schema = ReferenceOr::Object(Schema::Object(SchemaObject {
-          subschemas: Some(Box::new(SubschemaValidation {
-            one_of: Some(vec![schema1, schema2]),
-            ..Default::default()
-          })),
-          ..Default::default()
+        let schema2 = into_schema(schema2);
+        let schema = ReferenceOr::Object(json_schema!({
+          "oneOf": [schema1, schema2]
         }));
         let schema_name = format!("Either{schema_name1}Or{schema_name2}");
         Some((schema_name, schema))
@@ -284,6 +246,14 @@ where
         Some(responses)
       }
     }
+  }
+}
+
+#[cfg(feature = "actix")]
+fn into_schema(schema: ReferenceOr<Schema>) -> Schema {
+  match schema {
+    ReferenceOr::Object(schema_obj) => schema_obj,
+    ReferenceOr::Reference { _ref } => json_schema!({ "$ref": _ref }),
   }
 }
 
@@ -352,15 +322,10 @@ where
           let _ref = ReferenceOr::Reference {
             _ref: format!("#/components/schemas/{name}"),
           };
-          match schema_obj {
-            Schema::Object(obj) => {
-              if obj.instance_type == Some(SingleOrVec::Single(Box::new(InstanceType::Array))) {
-                ReferenceOr::Object(Schema::Object(obj))
-              } else {
-                _ref
-              }
-            }
-            Schema::Bool(_) => _ref,
+          if schema_obj.get("type").and_then(|t| t.as_str()) == Some("array") {
+            ReferenceOr::Object(schema_obj)
+          } else {
+            _ref
           }
         }
       };
@@ -421,8 +386,7 @@ mod test {
   use crate::ApiComponent;
   use apistos_models::reference_or::ReferenceOr;
   use assert_json_diff::assert_json_eq;
-  use schemars::schema::{InstanceType, ObjectValidation, Schema, SchemaObject, SingleOrVec};
-  use schemars::{Map, Set};
+  use schemars::{Schema, json_schema};
   use serde_json::json;
 
   #[test]
@@ -440,19 +404,11 @@ mod test {
       fn schema() -> Option<(String, ReferenceOr<Schema>)> {
         Some((
           "TestChild".to_string(),
-          ReferenceOr::Object(Schema::Object(SchemaObject {
-            object: Some(Box::new(ObjectValidation {
-              required: Set::from_iter(vec!["surname".to_string()]),
-              properties: Map::from_iter(vec![(
-                "surname".to_string(),
-                Schema::Object(SchemaObject {
-                  instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
-                  ..Default::default()
-                }),
-              )]),
-              ..Default::default()
-            })),
-            ..Default::default()
+          ReferenceOr::Object(json_schema!({
+            "properties": {
+              "surname": { "type": "string" }
+            },
+            "required": ["surname"]
           })),
         ))
       }
@@ -471,25 +427,12 @@ mod test {
       fn schema() -> Option<(String, ReferenceOr<Schema>)> {
         Some((
           "Test".to_string(),
-          ReferenceOr::Object(Schema::Object(SchemaObject {
-            object: Some(Box::new(ObjectValidation {
-              required: Set::from_iter(vec!["name".to_string(), "surname".to_string()]),
-              properties: Map::from_iter(vec![
-                (
-                  "name".to_string(),
-                  Schema::Object(SchemaObject {
-                    instance_type: Some(SingleOrVec::Single(Box::new(InstanceType::String))),
-                    ..Default::default()
-                  }),
-                ),
-                (
-                  "surname".to_string(),
-                  Schema::new_ref("#/components/schemas/TestChild".to_string()),
-                ),
-              ]),
-              ..Default::default()
-            })),
-            ..Default::default()
+          ReferenceOr::Object(json_schema!({
+            "properties": {
+              "name": { "type": "string" },
+              "surname": { "$ref": "#/components/schemas/TestChild" }
+            },
+            "required": ["name", "surname"]
           })),
         ))
       }

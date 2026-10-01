@@ -3,7 +3,7 @@ use apistos_models::reference_or::ReferenceOr;
 use log::warn;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use schemars::schema::{Schema, SchemaObject, StringValidation};
+use schemars::json_schema;
 use std::collections::HashSet;
 
 /// Regex that can be used to fetch templated path parameters.
@@ -104,13 +104,7 @@ fn path_template_parameters(path: &str) -> Vec<PathTemplateParameter> {
 fn update_parameter_pattern(param: &mut Parameter, path_template_parameter: &PathTemplateParameter) {
   if let Some(pattern) = &path_template_parameter.pattern {
     param.definition = Some(ParameterDefinition::Schema(Box::new(ReferenceOr::Object(
-      Schema::Object(SchemaObject {
-        string: Some(Box::new(StringValidation {
-          pattern: Some(pattern.clone()),
-          ..Default::default()
-        })),
-        ..Default::default()
-      }),
+      json_schema!({ "pattern": pattern }),
     ))))
   }
 }
@@ -120,7 +114,6 @@ mod test {
   #![allow(clippy::panic)]
 
   use crate::internal::actix::utils::OperationUpdater;
-  use apistos_models::Schema;
   use apistos_models::paths::{Operation, Parameter, ParameterDefinition, ParameterIn};
   use apistos_models::reference_or::ReferenceOr;
 
@@ -234,13 +227,9 @@ mod test {
       let def = p.definition.clone().expect("missing parameter definition");
       match def {
         ParameterDefinition::Schema(sch) => match *sch {
-          ReferenceOr::Object(obj) => match obj {
-            Schema::Bool(_) => panic!("expected schema object"),
-            Schema::Object(obj) => {
-              let str_obj = obj.string.expect("should be a string schema");
-              assert_eq!(str_obj.pattern, Some(".+".to_string()));
-            }
-          },
+          ReferenceOr::Object(obj) => {
+            assert_eq!(obj.get("pattern").and_then(|p| p.as_str()), Some(".+"));
+          }
           ReferenceOr::Reference { .. } => panic!("expected schema object"),
         },
         ParameterDefinition::Content(_) => panic!("expected schema"),

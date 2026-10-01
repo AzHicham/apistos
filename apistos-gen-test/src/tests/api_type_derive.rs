@@ -1,5 +1,5 @@
+use apistos::InstanceType;
 use assert_json_diff::assert_json_eq;
-use schemars::schema::InstanceType;
 use serde_json::json;
 use std::str::FromStr;
 

@@ -59,9 +59,7 @@ carpenters, craftsmen, metallurgy ... which can also be considered by some as th
 
 ```toml
 [dependencies]
-#schemars = "0.8"
-# sadly we currently rely on a fork to fix multiple flatten for enums, related PR can be found here: https://github.com/GREsau/schemars/pull/264
-schemars = { package = "apistos-schemars", version = "0.8" }
+schemars = "1"
 apistos = "0.6"
 ```
 

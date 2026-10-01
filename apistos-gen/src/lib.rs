@@ -77,21 +77,16 @@ pub fn derive_api_type(input: TokenStream) -> TokenStream {
   quote!(
     #[automatically_derived]
     impl #impl_generics schemars::JsonSchema for #ident #ty_generics #where_clause {
-       fn is_referenceable() -> bool {
-        false
+      fn inline_schema() -> bool {
+        true
       }
 
-      fn schema_name() -> String {
-        #component_name.to_string()
+      fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(#component_name)
       }
 
-      fn json_schema(_generator: &mut schemars::r#gen::SchemaGenerator) -> apistos::Schema {
-        let instance_type = <Self as TypedSchema>::schema_type();
-        apistos::Schema::Object(apistos::SchemaObject {
-          instance_type: Some(apistos::SingleOrVec::Single(Box::new(instance_type))),
-          format: <Self as TypedSchema>::format(),
-          ..Default::default()
-        })
+      fn json_schema(_generator: &mut schemars::SchemaGenerator) -> apistos::Schema {
+        <Self as apistos::TypedSchema>::schema_type().to_schema(<Self as apistos::TypedSchema>::format())
       }
     }
 
@@ -104,11 +99,10 @@ pub fn derive_api_type(input: TokenStream) -> TokenStream {
       fn schema() -> Option<(String, apistos::reference_or::ReferenceOr<apistos::Schema>)> {
         Some((
           #component_name.to_string(),
-          apistos::reference_or::ReferenceOr::Object(apistos::Schema::Object(apistos::SchemaObject {
-            instance_type: Some(apistos::SingleOrVec::Single(Box::new(<#ident #ty_generics>::schema_type()))),
-            format: <#ident #ty_generics>::format(),
-            ..Default::default()
-          }))
+          apistos::reference_or::ReferenceOr::Object(
+            <#ident #ty_generics as apistos::TypedSchema>::schema_type()
+              .to_schema(<#ident #ty_generics as apistos::TypedSchema>::format())
+          )
         ))
       }
     }

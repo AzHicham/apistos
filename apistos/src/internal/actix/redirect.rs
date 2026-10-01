@@ -4,7 +4,7 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use apistos_models::paths::{Header, MediaType, ParameterDefinition, Response};
 use apistos_models::reference_or::ReferenceOr;
-use apistos_models::{Schema, SchemaObject};
+use schemars::json_schema;
 use serde_json::Value;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -95,9 +95,8 @@ impl Redirect {
       definition: Some(ParameterDefinition::Content(BTreeMap::from_iter(vec![(
         "text/plain".to_string(),
         MediaType {
-          schema: Some(ReferenceOr::Object(Schema::Object(SchemaObject {
-            enum_values: Some(vec![Value::String(self.redirect.clone())]),
-            ..Default::default()
+          schema: Some(ReferenceOr::Object(json_schema!({
+            "enum": [Value::String(self.redirect.clone())]
           }))),
           ..Default::default()
         },
